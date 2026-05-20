@@ -71,4 +71,4 @@ python3 sra_run_watch.py \
 
 ## License
 
-TBD.
+[Apache License 2.0](LICENSE).
