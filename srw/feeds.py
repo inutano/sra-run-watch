@@ -49,6 +49,8 @@ def http_with_retry(call, retries=3, sleep=None, backoff=2.0):
         try:
             return call()
         except urllib.error.URLError as exc:
+            if isinstance(exc, urllib.error.HTTPError) and exc.code < 500:
+                raise
             last = exc
             if attempt < retries - 1:
                 sleep(backoff ** attempt)
