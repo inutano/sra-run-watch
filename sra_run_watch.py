@@ -25,27 +25,25 @@ def run(data_dir, today, ncbi_lookback_days, ena_window_days,
     conn = store.connect(os.path.join(data_dir, "runs.sqlite"))
     try:
         ncbi_ok = ena_ok = False
-        total_new = total_updated = 0
+        total_updated = 0
 
         for date_str in _daterange_back(today, ncbi_lookback_days):
             try:
                 recs = fetch_ncbi(date_str)
+                _new, updated = store.upsert(conn, recs, today)
+                total_updated += updated
                 ncbi_ok = True
-            except Exception as exc:  # network/parse failure for one day
+            except Exception as exc:  # one day's fetch/store failure is non-fatal
                 sys.stderr.write(f"[warn] NCBI delta {date_str} failed: {exc}\n")
                 continue
-            n, u = store.upsert(conn, recs, today)
-            total_new += n
-            total_updated += u
 
         start = (datetime.date.fromisoformat(today)
                  - datetime.timedelta(days=ena_window_days)).isoformat()
         try:
             ena_recs = fetch_ena(start, today)
+            _new, updated = store.upsert(conn, ena_recs, today)
+            total_updated += updated
             ena_ok = True
-            n, u = store.upsert(conn, ena_recs, today)
-            total_new += n
-            total_updated += u
         except Exception as exc:
             sys.stderr.write(f"[warn] ENA sweep failed: {exc}\n")
 
@@ -57,10 +55,10 @@ def run(data_dir, today, ncbi_lookback_days, ena_window_days,
         output.write_daily_file(new_rows, out_path)
 
         sys.stderr.write(
-            f"[info] {today}: {total_new} new, {total_updated} updated; "
+            f"[info] {today}: {len(new_rows)} new, {total_updated} updated; "
             f"ncbi_ok={ncbi_ok} ena_ok={ena_ok}; wrote {out_path}\n"
         )
-        return {"new": total_new, "updated": total_updated,
+        return {"new": len(new_rows), "updated": total_updated,
                 "ncbi_ok": ncbi_ok, "ena_ok": ena_ok, "out_path": out_path}
     finally:
         conn.close()

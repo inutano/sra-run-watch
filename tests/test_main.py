@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 import sra_run_watch as cli
@@ -39,9 +40,17 @@ class TestRun(unittest.TestCase):
             kw = dict(data_dir=d, today="2026-05-20", ncbi_lookback_days=1,
                       ena_window_days=30,
                       fetch_ncbi=lambda date: recs, fetch_ena=lambda s, e: [])
-            cli.run(**kw)
-            result = cli.run(**kw)
-            self.assertEqual(result["new"], 0)
+            first = cli.run(**kw)
+            second = cli.run(**kw)
+            # storage-idempotent: rerunning inserts no duplicate rows
+            conn = sqlite3.connect(os.path.join(d, "runs.sqlite"))
+            count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+            conn.close()
+            self.assertEqual(count, 1)
+            # result["new"] consistently reflects today's file row count
+            self.assertEqual(first["new"], 1)
+            self.assertEqual(second["new"], 1)
+            self.assertEqual(second["updated"], 0)
 
 
 if __name__ == "__main__":
