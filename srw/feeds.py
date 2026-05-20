@@ -68,3 +68,25 @@ def _post_bytes(url, params, timeout=300):
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
+
+
+def fetch_ncbi_delta(date_str, get_bytes=None):
+    """Download + parse the NCBI Mirroring delta for a date. Missing dir -> []."""
+    get_bytes = get_bytes or _get_bytes
+    _base, ll_url, fi_url = ncbi_delta_url(date_str)
+    try:
+        ll_raw = http_with_retry(lambda: get_bytes(ll_url))
+        fi_raw = http_with_retry(lambda: get_bytes(fi_url))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return []
+        raise
+    return parse_ncbi_delta(gunzip_text(ll_raw), gunzip_text(fi_raw))
+
+
+def fetch_ena_sweep(start_date, end_date, post_bytes=None):
+    """Query the ENA Portal API for read_run rows in a first_public window."""
+    post_bytes = post_bytes or _post_bytes
+    params = ena_search_params(start_date, end_date)
+    raw = http_with_retry(lambda: post_bytes(_ENA_SEARCH, params))
+    return parse_ena_tsv(raw.decode("utf-8"))
