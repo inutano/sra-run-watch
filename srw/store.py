@@ -40,7 +40,14 @@ def connect(path):
 
 
 def _is_empty(value):
-    return value is None or (isinstance(value, str) and value.strip() == "")
+    """None, blank strings, and numeric zero all count as 'not yet known'."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (int, float)):
+        return value == 0
+    return False
 
 
 def _merge_sources(existing, new_source):

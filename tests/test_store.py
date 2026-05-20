@@ -77,6 +77,27 @@ class TestStoreMerge(unittest.TestCase):
         count = self.conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
         self.assertEqual(count, 1)
 
+    def test_zero_numeric_is_backfillable(self):
+        # ENA placeholder: fresh run first reported with base_count 0 and sra_bytes 0
+        upsert(self.conn, [{"run_accession": "SRR1", "sequenced_bases": 0,
+                            "sra_bytes": 0, "source": "ena"}], "2026-05-20")
+        # later sweep: ENA now has the real values
+        upsert(self.conn, [{"run_accession": "SRR1", "sequenced_bases": 30000,
+                            "sra_bytes": 5000, "source": "ena"}], "2026-06-01")
+        row = self.conn.execute(
+            "SELECT * FROM runs WHERE run_accession='SRR1'").fetchone()
+        self.assertEqual(row["sequenced_bases"], 30000)
+        self.assertEqual(row["sra_bytes"], 5000)
+
+    def test_real_value_not_overwritten_by_zero(self):
+        upsert(self.conn, [{"run_accession": "SRR1", "sequenced_bases": 30000,
+                            "source": "ena"}], "2026-05-20")
+        upsert(self.conn, [{"run_accession": "SRR1", "sequenced_bases": 0,
+                            "source": "ena"}], "2026-06-01")
+        row = self.conn.execute(
+            "SELECT sequenced_bases FROM runs WHERE run_accession='SRR1'").fetchone()
+        self.assertEqual(row["sequenced_bases"], 30000)
+
 
 if __name__ == "__main__":
     unittest.main()
