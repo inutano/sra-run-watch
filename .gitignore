@@ -1,0 +1,10 @@
+# runtime data: database and daily output files
+data/
+*.sqlite
+*.sqlite-journal
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
