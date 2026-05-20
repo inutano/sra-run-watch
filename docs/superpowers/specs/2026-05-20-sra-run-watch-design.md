@@ -114,6 +114,11 @@ sra-run-watch/
      accessions, fill any NULL/empty fields from the new record and refresh `last_updated`
      (never overwrite a populated field with an empty one). Track which feeds touched the
      row in `sources`.
+   - "Empty" includes `None`, blank strings, **and numeric `0`**. The ENA Portal API
+     returns `base_count=0` (and sometimes `sra_bytes=0`) as a placeholder for recently
+     public runs it has not finished processing; treating `0` as "not yet known" lets the
+     real value backfill on a later sweep, while a real value is never clobbered by a
+     later `0`.
    - `select_new(today) -> rows`: rows where `first_seen == today`.
 
 5. **Output writer** — writes `data/new_runs_YYYY-MM-DD.tsv` with header:
