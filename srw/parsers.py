@@ -64,3 +64,49 @@ def parse_fileinfo_csv(text):
             }
         )
     return records
+
+
+def parse_ncbi_delta(livelist_text, fileinfo_text):
+    """Merge livelist RUN rows and fileinfo rows into one record per accession."""
+    merged = {}
+    for rec in parse_livelist_csv(livelist_text):
+        merged[rec["run_accession"]] = dict(rec)
+    for rec in parse_fileinfo_csv(fileinfo_text):
+        acc = rec["run_accession"]
+        if acc in merged:
+            target = merged[acc]
+            if rec.get("sra_bytes") is not None:
+                target["sra_bytes"] = rec["sra_bytes"]
+            if rec.get("sra_md5") is not None:
+                target["sra_md5"] = rec["sra_md5"]
+        else:
+            merged[acc] = dict(rec)
+    return list(merged.values())
+
+
+def _str_or_none(value):
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def parse_ena_tsv(text):
+    """Parse ENA Portal API read_run TSV into normalized records."""
+    records = []
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    for row in reader:
+        acc = row["run_accession"]
+        records.append(
+            {
+                "run_accession": acc,
+                "archive": accession_to_archive(acc),
+                "reg_date": _str_or_none(row.get("first_public")),
+                "sequenced_bases": _int_or_none(row.get("base_count")),
+                "sra_bytes": _int_or_none(row.get("sra_bytes")),
+                "fastq_bytes": _str_or_none(row.get("fastq_bytes")),
+                "fastq_ftp": _str_or_none(row.get("fastq_ftp")),
+                "source": "ena",
+            }
+        )
+    return records

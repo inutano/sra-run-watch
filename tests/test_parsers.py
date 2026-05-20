@@ -1,6 +1,12 @@
 import gzip
 import unittest
-from srw.parsers import gunzip_text, parse_livelist_csv, parse_fileinfo_csv
+from srw.parsers import (
+    gunzip_text,
+    parse_livelist_csv,
+    parse_fileinfo_csv,
+    parse_ncbi_delta,
+    parse_ena_tsv,
+)
 
 
 LIVELIST = (
@@ -52,6 +58,50 @@ class TestParseFileinfo(unittest.TestCase):
         self.assertEqual(r["sra_bytes"], 20017812)
         self.assertEqual(r["sra_md5"], "fb97e1031f43107c97cf99100d75fd3b")
         self.assertEqual(r["source"], "ncbi")
+
+
+ENA_TSV = (
+    "run_accession\tfirst_public\tbase_count\tfastq_bytes\tsra_bytes\tfastq_ftp\n"
+    "DRR196884\t2025-10-01\t30197652282\t13397979872\t\t"
+    "ftp.sra.ebi.ac.uk/vol1/fastq/DRR196/DRR196884/DRR196884.fastq.gz\n"
+    "SRR38673021\t2026-05-18\t\t\t\t\n"
+)
+
+
+class TestParseNcbiDelta(unittest.TestCase):
+    def test_merges_fileinfo_into_livelist(self):
+        recs = parse_ncbi_delta(LIVELIST, FILEINFO)
+        by_acc = {r["run_accession"]: r for r in recs}
+        self.assertIn("SRR38673021", by_acc)
+        self.assertIn("ERR1358750", by_acc)
+        self.assertIn("SRR38673016", by_acc)  # fileinfo-only
+        srr = by_acc["SRR38673021"]
+        self.assertEqual(srr["reg_date"], "2026-05-18")
+        self.assertEqual(srr["sra_bytes"], 20017812)
+        f_only = by_acc["SRR38673016"]
+        self.assertEqual(f_only["archive"], "NCBI")
+        self.assertIsNone(f_only.get("reg_date"))
+        self.assertEqual(f_only["sra_bytes"], 22105709)
+
+
+class TestParseEnaTsv(unittest.TestCase):
+    def test_fields(self):
+        recs = parse_ena_tsv(ENA_TSV)
+        by_acc = {r["run_accession"]: r for r in recs}
+        drr = by_acc["DRR196884"]
+        self.assertEqual(drr["archive"], "DDBJ")
+        self.assertEqual(drr["reg_date"], "2025-10-01")
+        self.assertEqual(drr["sequenced_bases"], 30197652282)
+        self.assertEqual(drr["fastq_bytes"], "13397979872")
+        self.assertIsNone(drr["sra_bytes"])
+        self.assertTrue(drr["fastq_ftp"].endswith("DRR196884.fastq.gz"))
+        self.assertEqual(drr["source"], "ena")
+
+    def test_empty_numeric_fields_become_none(self):
+        recs = parse_ena_tsv(ENA_TSV)
+        srr = {r["run_accession"]: r for r in recs}["SRR38673021"]
+        self.assertIsNone(srr["sequenced_bases"])
+        self.assertIsNone(srr["fastq_bytes"])
 
 
 if __name__ == "__main__":
