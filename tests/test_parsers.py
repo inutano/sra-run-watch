@@ -104,5 +104,33 @@ class TestParseEnaTsv(unittest.TestCase):
         self.assertIsNone(srr["fastq_bytes"])
 
 
+class TestSkipsEmptyAccession(unittest.TestCase):
+    def test_livelist_skips_blank_accession(self):
+        text = (
+            "Accession,Type,Status,Received,Published,LastUpdate,LastMetaUpdate,"
+            "ReplacedBy,BioSample,BioProject,Insdc\n"
+            ",RUN,live,2026-05-18 00:00:00,2026-05-18 00:00:00,"
+            "2026-05-18 00:00:00,2026-05-18 00:00:00,None,None,None,True\n"
+            "SRR9,RUN,live,2026-05-18 00:00:00,2026-05-18 00:00:00,"
+            "2026-05-18 00:00:00,2026-05-18 00:00:00,None,None,None,True\n"
+        )
+        recs = parse_livelist_csv(text)
+        self.assertEqual([r["run_accession"] for r in recs], ["SRR9"])
+
+    def test_fileinfo_skips_blank_accession(self):
+        text = "Accession,FileSize,FileMd5,FileDate\n,100,abc,2026-05-18 00:00:00\nSRR9,200,def,2026-05-18 00:00:00\n"
+        recs = parse_fileinfo_csv(text)
+        self.assertEqual([r["run_accession"] for r in recs], ["SRR9"])
+
+    def test_ena_skips_blank_accession(self):
+        text = (
+            "run_accession\tfirst_public\tbase_count\tfastq_bytes\tsra_bytes\tfastq_ftp\n"
+            "\t2026-05-10\t500\t55\t\tftp.x/y.fastq.gz\n"
+            "ERR9\t2026-05-10\t500\t55\t\tftp.x/y.fastq.gz\n"
+        )
+        recs = parse_ena_tsv(text)
+        self.assertEqual([r["run_accession"] for r in recs], ["ERR9"])
+
+
 if __name__ == "__main__":
     unittest.main()

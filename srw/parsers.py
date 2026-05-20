@@ -38,6 +38,8 @@ def parse_livelist_csv(text):
         if row.get("Type") != "RUN":
             continue
         acc = row["Accession"]
+        if not acc or not acc.strip():
+            continue
         records.append(
             {
                 "run_accession": acc,
@@ -54,6 +56,8 @@ def parse_fileinfo_csv(text):
     records = []
     for row in csv.DictReader(io.StringIO(text)):
         acc = row["Accession"]
+        if not acc or not acc.strip():
+            continue
         records.append(
             {
                 "run_accession": acc,
@@ -97,6 +101,8 @@ def parse_ena_tsv(text):
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
     for row in reader:
         acc = row["run_accession"]
+        if not acc or not acc.strip():
+            continue
         records.append(
             {
                 "run_accession": acc,
